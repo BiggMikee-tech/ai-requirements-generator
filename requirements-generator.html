@@ -628,15 +628,42 @@ Be specific to the domain. No generic filler.`;
         body: JSON.stringify({ prompt })
       });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+      // Errors are returned as JSON before any streaming begins.
+      if (!response.ok || !response.body) {
+        let message = `Request failed (${response.status})`;
+        try { const data = await response.json(); message = data.error || message; } catch {}
+        throw new Error(message);
+      }
 
-      const raw = data.text || '';
-      if (!raw) throw new Error('No response from API.');
+      // The response streams in as plain text; render it progressively as it arrives.
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let raw = '';
+      let shown = false;
+      let lastRender = 0;
 
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        raw += decoder.decode(value, { stream: true });
+
+        if (!shown && raw.trim()) {
+          document.getElementById('outputSection').classList.add('visible');
+          setTimeout(() => document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+          shown = true;
+        }
+
+        // Throttle re-renders so a fast stream stays smooth.
+        const now = Date.now();
+        if (now - lastRender > 150) {
+          parseAndRender(raw);
+          lastRender = now;
+        }
+      }
+
+      raw += decoder.decode();
+      if (!raw.trim()) throw new Error('No response from API.');
       parseAndRender(raw);
-      document.getElementById('outputSection').classList.add('visible');
-      setTimeout(() => document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
 
     } catch (err) {
       const errEl = document.getElementById('errorMsg');
