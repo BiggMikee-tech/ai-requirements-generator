@@ -218,6 +218,34 @@
     background: linear-gradient(90deg, var(--accent), var(--accent2));
   }
 
+  .template-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--accent-soft);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    padding: 12px 14px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .template-bar label {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+  }
+  .template-bar select {
+    flex: 1;
+    min-width: 210px;
+    background: var(--surface);
+    border-color: var(--border-strong);
+  }
+
   .form-card h2 {
     font-family: 'Space Grotesk', sans-serif;
     font-size: 12px;
@@ -624,6 +652,19 @@
   </div>
 
   <div class="form-card">
+    <div class="template-bar">
+      <label for="templateSelect">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Load a template
+      </label>
+      <select id="templateSelect" onchange="loadTemplate()" aria-label="Load a template">
+        <option value="">Choose a starting point…</option>
+        <option value="mortgage">Mortgage Application Processing</option>
+        <option value="kyc">Customer KYC Onboarding</option>
+        <option value="equity">Equity Release Application</option>
+      </select>
+    </div>
+
     <h2>Project Context</h2>
 
     <div class="field">
@@ -788,6 +829,37 @@
   document.getElementById('domainInput').addEventListener('change', (e) => {
     document.getElementById('domainOtherField').style.display = e.target.value === 'Other' ? 'block' : 'none';
   });
+
+  /* ---------- Starter templates (financial services) ---------- */
+  const TEMPLATES = {
+    mortgage: {
+      user: 'Mortgage Adviser',
+      domain: 'Financial Services / Lending',
+      problem: "Our mortgage application process is largely manual: advisers rekey applicant details across several systems, supporting documents are gathered over email, and underwriting is delayed by missing or inconsistent information. Applicants have no visibility of their application status, driving a high volume of chase calls and around 30% drop-off before completion. We need a streamlined digital mortgage application journey that captures data once, validates documents up front, and keeps applicants informed all the way through to a lending decision."
+    },
+    kyc: {
+      user: 'Onboarding / Compliance Officer',
+      domain: 'Banking / Payments',
+      problem: "New customer onboarding relies on manual Know Your Customer (KYC) checks: identity documents are reviewed by hand, screening against sanctions and PEP watchlists is inconsistent, and cases stall whenever information is incomplete. This creates onboarding delays of several days, a poor first impression for customers, and compliance risk from missed or poorly evidenced checks. We need a digital KYC onboarding flow that captures and verifies identity, screens applicants against watchlists, and gives compliance a clear, auditable record of every decision."
+    },
+    equity: {
+      user: 'Equity Release Adviser',
+      domain: 'Financial Services / Lending',
+      problem: "Our equity release application process is complex and heavily paper-based, involving advisers, solicitors, and surveyors with little coordination between them. Older applicants often find the journey confusing, mandatory advice and safeguarding steps are tracked manually, and cases frequently stall waiting on third-party inputs. This results in long completion times, compliance exposure around vulnerable-customer protections, and frustrated applicants. We need a guided equity release application that coordinates all parties, enforces the required advice and safeguarding checks, and keeps applicants informed at every stage."
+    }
+  };
+
+  function loadTemplate() {
+    const t = TEMPLATES[document.getElementById('templateSelect').value];
+    if (!t) return;
+    document.getElementById('problemInput').value = t.problem;
+    if (t.user) document.getElementById('userInput').value = t.user;
+    if (t.domain) {
+      document.getElementById('domainInput').value = t.domain;
+      document.getElementById('domainOtherField').style.display = 'none';
+    }
+    updateValidation();
+  }
 
   /* ---------- Input validation + live word count ---------- */
   function countWords(s) {
