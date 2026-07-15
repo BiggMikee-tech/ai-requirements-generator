@@ -357,6 +357,79 @@
     color: var(--text);
   }
 
+  /* --- View switching: form screen <-> results screen --- */
+  #formView, #resultsView { min-width: 0; }
+  .view-anim { animation: fadeInUp 0.28s ease both; }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .results-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, transform 0.15s;
+    flex-shrink: 0;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateX(-2px); }
+
+  .results-title-wrap { min-width: 0; }
+  .results-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+  }
+  .results-subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 3px;
+    line-height: 1.5;
+  }
+
+  .results-loading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 26px 28px;
+    color: var(--muted);
+    font-size: 14px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+  }
+
+  .results-error {
+    display: none;
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.25);
+    border-radius: 14px;
+    color: var(--error);
+    font-size: 14px;
+    padding: 20px 24px;
+    line-height: 1.6;
+  }
+  .results-error.visible { display: block; }
+
   @media (max-width: 600px) {
     .row { grid-template-columns: 1fr; }
     main { padding: 20px 14px 50px; }
@@ -382,6 +455,8 @@
 </header>
 
 <main>
+
+  <div id="formView">
   <div class="intro">
     <h1>AI Requirements Generator</h1>
     <p>Describe your business problem and get structured user stories, acceptance criteria, and process flow. Ready for sprint planning or stakeholder review.</p>
@@ -443,25 +518,42 @@
       Generate Requirements
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>
     </button>
-    <div class="loading-bar" id="loadingBar" aria-live="polite">
+    <div class="error-msg" id="errorMsg" aria-live="polite"></div>
+  </div>
+  </div><!-- /#formView -->
+
+  <div id="resultsView" style="display:none;">
+    <div class="results-header">
+      <button class="back-btn" onclick="showForm()" aria-label="Start a new requirement">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="11 18 5 12 11 6"/></svg>
+        New Requirements
+      </button>
+      <div class="results-title-wrap">
+        <h1 class="results-title">Generated Requirements</h1>
+        <p class="results-subtitle" id="resultsSubtitle"></p>
+      </div>
+    </div>
+
+    <div class="results-loading" id="resultsLoading" aria-live="polite">
       <div class="spinner"></div>
       <span id="loadingText">Analysing business problem...</span>
     </div>
-    <div class="error-msg" id="errorMsg" aria-live="polite"></div>
-  </div>
 
-  <div class="output-section" id="outputSection">
-    <div class="output-tabs">
-      <div class="tab active" onclick="switchTab('stories')">User Stories</div>
-      <div class="tab" onclick="switchTab('criteria')">Acceptance Criteria</div>
-      <div class="tab" onclick="switchTab('flow')">Process Flow</div>
-      <div class="tab" onclick="switchTab('raw')">Full Output</div>
-    </div>
-    <div class="tab-content">
-      <div class="tab-pane active" id="tab-stories"></div>
-      <div class="tab-pane" id="tab-criteria"></div>
-      <div class="tab-pane" id="tab-flow"></div>
-      <div class="tab-pane" id="tab-raw"></div>
+    <div class="results-error" id="resultsError" aria-live="polite"></div>
+
+    <div class="output-section" id="outputSection">
+      <div class="output-tabs">
+        <div class="tab active" onclick="switchTab('stories')">User Stories</div>
+        <div class="tab" onclick="switchTab('criteria')">Acceptance Criteria</div>
+        <div class="tab" onclick="switchTab('flow')">Process Flow</div>
+        <div class="tab" onclick="switchTab('raw')">Full Output</div>
+      </div>
+      <div class="tab-content">
+        <div class="tab-pane active" id="tab-stories"></div>
+        <div class="tab-pane" id="tab-criteria"></div>
+        <div class="tab-pane" id="tab-flow"></div>
+        <div class="tab-pane" id="tab-raw"></div>
+      </div>
     </div>
   </div>
 </main>
@@ -469,6 +561,11 @@
 <script>
   let selectedFormat = 'Agile / Scrum';
   let selectedPriority = 'MVP / Core';
+
+  // Tracks the active generation so a superseded or cancelled run can't
+  // clobber the UI or keep writing output after the user has moved on.
+  let currentGen = 0;
+  let currentController = null;
 
   document.querySelectorAll('#formatGroup .opt-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -531,12 +628,14 @@
     const storiesSection = raw.match(/USER STORIES[\s\S]*?(?=ACCEPTANCE CRITERIA)/i)?.[0] || raw;
     const storyBlocks = storiesSection.split(/\n(?=Story \d+:)/i).filter(s => s.trim().length > 10);
     let storiesHtml = '';
-    storyBlocks.forEach((block, i) => {
+    let storyNum = 0;
+    storyBlocks.forEach((block) => {
       if (!block.trim() || block.trim().startsWith('USER STORIES')) return;
+      storyNum++;
       const lines = block.trim().split('\n').filter(l => l.trim());
       const title = escapeHtml(lines[0] || '');
       const body = escapeHtml(lines.slice(1).join('\n'));
-      storiesHtml += `<div class="story-block"><div class="story-label">Story ${i + 1}</div><strong>${title.replace(/^Story \d+:\s*/i,'')}</strong>${body ? '<br><br>' + body.replace(/\n/g,'<br>') : ''}</div>`;
+      storiesHtml += `<div class="story-block"><div class="story-label">Story ${storyNum}</div><strong>${title.replace(/^Story \d+:\s*/i,'')}</strong>${body ? '<br><br>' + body.replace(/\n/g,'<br>') : ''}</div>`;
     });
     if (!storiesHtml) storiesHtml = `<div class="story-block"><div class="raw-output">${escapeHtml(storiesSection.replace(/USER STORIES\s*/i,'').trim())}</div></div>`;
     document.getElementById('tab-stories').innerHTML = `<button class="copy-btn" onclick="copyTab('stories')">Copy</button><div style="clear:both;height:12px"></div>${storiesHtml}`;
@@ -591,9 +690,25 @@
     }
 
     document.getElementById('errorMsg').classList.remove('visible');
-    document.getElementById('generateBtn').disabled = true;
-    document.getElementById('loadingBar').classList.add('visible');
+
+    // Cancel any in-flight run and claim this one.
+    if (currentController) currentController.abort();
+    currentController = new AbortController();
+    const signal = currentController.signal;
+    const myGen = ++currentGen;
+
+    // Move to the dedicated results screen.
+    swapView(document.getElementById('formView'), document.getElementById('resultsView'));
+
+    // Reset the results screen for this run.
+    document.getElementById('resultsSubtitle').textContent =
+      [domain || 'General', selectedFormat, selectedPriority].filter(Boolean).join('  •  ');
+    document.getElementById('resultsError').classList.remove('visible');
+    document.getElementById('resultsLoading').style.display = 'flex';
     document.getElementById('outputSection').classList.remove('visible');
+    ['stories','criteria','flow','raw'].forEach(n => { document.getElementById('tab-' + n).innerHTML = ''; });
+    switchTab('stories');
+    document.getElementById('generateBtn').disabled = true;
     startLoading();
 
     const prompt = `You are a Senior Business Analyst. Generate structured requirements for the following:
@@ -625,7 +740,8 @@ Be specific to the domain. No generic filler.`;
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ prompt }),
+        signal
       });
 
       // Errors are returned as JSON before any streaming begins.
@@ -648,8 +764,8 @@ Be specific to the domain. No generic filler.`;
         raw += decoder.decode(value, { stream: true });
 
         if (!shown && raw.trim()) {
+          document.getElementById('resultsLoading').style.display = 'none';
           document.getElementById('outputSection').classList.add('visible');
-          setTimeout(() => document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
           shown = true;
         }
 
@@ -666,14 +782,31 @@ Be specific to the domain. No generic filler.`;
       parseAndRender(raw);
 
     } catch (err) {
-      const errEl = document.getElementById('errorMsg');
-      errEl.textContent = 'Error: ' + err.message;
+      if (err.name === 'AbortError') return;   // superseded by a newer run, or cancelled
+      document.getElementById('resultsLoading').style.display = 'none';
+      const errEl = document.getElementById('resultsError');
+      errEl.textContent = 'Error: ' + err.message + ' — use “New Requirements” to go back and try again.';
       errEl.classList.add('visible');
     } finally {
-      stopLoading();
-      document.getElementById('generateBtn').disabled = false;
-      document.getElementById('loadingBar').classList.remove('visible');
+      if (myGen === currentGen) {
+        stopLoading();
+        document.getElementById('generateBtn').disabled = false;
+      }
     }
+  }
+
+  function showForm() {
+    if (currentController) currentController.abort();
+    swapView(document.getElementById('resultsView'), document.getElementById('formView'));
+  }
+
+  function swapView(hideEl, showEl) {
+    hideEl.style.display = 'none';
+    showEl.style.display = 'block';
+    showEl.classList.remove('view-anim');
+    void showEl.offsetWidth; // restart the enter animation
+    showEl.classList.add('view-anim');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 </script>
 </body>
