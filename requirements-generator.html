@@ -660,6 +660,30 @@
   .empty-state .empty-sub { font-size: 13px; margin-top: 6px; }
   .tool-btn.saved { border-color: var(--success); color: var(--success); }
 
+  /* Welcome / landing screen */
+  .welcome { padding-top: 8px; }
+  .welcome-cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 30px; }
+  .welcome-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff;
+    border: none; border-radius: 11px;
+    font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600;
+    padding: 14px 26px; cursor: pointer;
+    box-shadow: 0 6px 18px rgba(79,110,247,0.30);
+    transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+  }
+  .welcome-primary:hover { transform: translateY(-1px); box-shadow: 0 9px 24px rgba(79,110,247,0.38); }
+  .welcome-btn { padding: 13px 20px; font-size: 14px; border-radius: 11px; }
+  .welcome-note { margin-top: 16px; font-size: 12.5px; color: var(--muted); }
+
+  /* Compact heading on the generator screen */
+  .form-lead { margin-bottom: 22px; }
+  .form-lead h1 {
+    font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700;
+    letter-spacing: -0.5px; color: var(--heading); margin-bottom: 6px;
+  }
+  .form-lead p { color: var(--muted); font-size: 14.5px; line-height: 1.55; }
+
   @media (max-width: 600px) {
     .row { grid-template-columns: 1fr; }
     main { padding: 26px 16px 50px; }
@@ -667,6 +691,8 @@
     .badge { display: none; }
     .user-email { display: none; }
     .header-right { gap: 7px; }
+    .welcome-cta { flex-direction: column; align-items: stretch; }
+    .welcome-primary, .welcome-btn { width: 100%; justify-content: center; }
     .intro h1 { font-size: 28px; letter-spacing: -0.7px; }
     .intro p { font-size: 15px; }
     .results-title { font-size: 19px; }
@@ -705,16 +731,34 @@
 
 <main>
 
-  <div id="formView">
-  <div class="intro">
-    <h1>Turn a business problem into <span class="grad">sprint-ready requirements</span></h1>
-    <p>Describe the problem once — ReqAI structures it into user stories, acceptance criteria, and a process flow, ready for sprint planning or stakeholder review. Export to PDF or Word in a click.</p>
-    <div class="feature-strip">
-      <span class="feat">User Stories</span>
-      <span class="feat">Acceptance Criteria</span>
-      <span class="feat">Process Flow</span>
-      <span class="feat">PDF &amp; Word export</span>
+  <div id="welcomeView">
+    <div class="welcome">
+      <div class="intro">
+        <h1>Turn a business problem into <span class="grad">sprint-ready requirements</span></h1>
+        <p>Describe the problem once — ReqAI structures it into user stories, acceptance criteria, and a process flow, ready for sprint planning or stakeholder review. Export to PDF or Word in a click.</p>
+        <div class="feature-strip">
+          <span class="feat">User Stories</span>
+          <span class="feat">Acceptance Criteria</span>
+          <span class="feat">Process Flow</span>
+          <span class="feat">PDF &amp; Word export</span>
+        </div>
+      </div>
+      <div class="welcome-cta">
+        <button class="welcome-primary" onclick="showOnly('formView')">
+          Try it now
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>
+        </button>
+        <button class="hbtn ghost welcome-btn" onclick="openAuth('login')">Log in</button>
+        <button class="hbtn welcome-btn" onclick="openAuth('signup')">Sign up free</button>
+      </div>
+      <p class="welcome-note">Free to try — no account needed. Create an account to save your requirements.</p>
     </div>
+  </div>
+
+  <div id="formView" style="display:none;">
+  <div class="form-lead">
+    <h1>Generate requirements</h1>
+    <p>Describe your business problem and get structured, sprint-ready requirements in seconds.</p>
   </div>
 
   <div class="form-card">
@@ -1205,11 +1249,13 @@
     showOnly('formView');
   }
 
+  let activeView = 'welcomeView';
   function showOnly(id) {
-    ['formView', 'resultsView', 'savedView'].forEach(v => {
+    ['welcomeView', 'formView', 'resultsView', 'savedView'].forEach(v => {
       const el = document.getElementById(v);
       if (el) el.style.display = (v === id) ? 'block' : 'none';
     });
+    activeView = id;
     const showEl = document.getElementById(id);
     showEl.classList.remove('view-anim');
     void showEl.offsetWidth; // restart the enter animation
@@ -1340,6 +1386,7 @@ Be specific to the domain. No generic filler.`;
 
   /* ---------- Auth + saved requirements (Supabase) ---------- */
   let authMode = 'login';
+  let authOpenedFrom = 'welcomeView';
 
   function updateAuthUI() {
     const area = document.getElementById('authArea');
@@ -1360,6 +1407,7 @@ Be specific to the domain. No generic filler.`;
 
   function openAuth(mode) {
     if (!sb) return;
+    authOpenedFrom = activeView;
     authMode = (mode === 'signup') ? 'signup' : 'login';
     const err = document.getElementById('authError');
     err.classList.remove('visible'); err.textContent = '';
@@ -1398,6 +1446,7 @@ Be specific to the domain. No generic filler.`;
       if (res.error) throw res.error;
       document.getElementById('authPassword').value = '';
       closeAuth();
+      if (authOpenedFrom === 'welcomeView') showOnly('formView');
     } catch (e) {
       err.textContent = e.message || 'Authentication failed.';
       err.classList.add('visible');
@@ -1409,7 +1458,7 @@ Be specific to the domain. No generic filler.`;
   async function logOut() {
     if (!sb) return;
     await sb.auth.signOut();
-    showOnly('formView');
+    showOnly('welcomeView');
   }
 
   async function saveCurrent() {
@@ -1497,7 +1546,11 @@ Be specific to the domain. No generic filler.`;
 
   // Initialise auth: restore any existing session and react to changes.
   if (sb) {
-    sb.auth.getSession().then(({ data }) => { currentUser = (data && data.session) ? data.session.user : null; updateAuthUI(); });
+    sb.auth.getSession().then(({ data }) => {
+      currentUser = (data && data.session) ? data.session.user : null;
+      updateAuthUI();
+      showOnly(currentUser ? 'formView' : 'welcomeView');
+    });
     sb.auth.onAuthStateChange((e, session) => { currentUser = session ? session.user : null; updateAuthUI(); });
     const modal = document.getElementById('authModal');
     modal.addEventListener('click', (e) => { if (e.target === modal) closeAuth(); });
@@ -1505,6 +1558,8 @@ Be specific to the domain. No generic filler.`;
       const el = document.getElementById(id);
       if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(); });
     });
+  } else {
+    showOnly('formView');
   }
   updateAuthUI();
 
