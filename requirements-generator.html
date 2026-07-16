@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ReqAI · AI Requirements Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   // Apply the saved theme before paint to avoid a flash of the wrong theme.
   (function () {
@@ -121,7 +122,6 @@
   .logo-text span { color: var(--accent); }
 
   .badge {
-    margin-left: auto;
     font-size: 11px;
     font-weight: 600;
     color: var(--muted);
@@ -599,11 +599,74 @@
   }
   footer strong { color: var(--text); font-weight: 600; }
 
+  /* Header right cluster + auth */
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .auth-area { display: flex; align-items: center; gap: 8px; }
+  .user-email { font-size: 12.5px; color: var(--muted); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hbtn {
+    font-family: 'Inter', sans-serif; font-size: 12.5px; font-weight: 600;
+    padding: 8px 13px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+    border: 1px solid transparent; transition: all 0.15s;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff;
+  }
+  .hbtn:hover { opacity: 0.92; }
+  .hbtn.ghost { background: var(--surface); border-color: var(--border-strong); color: var(--text); }
+  .hbtn.ghost:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
+  .hbtn.danger { background: transparent; border-color: transparent; color: var(--muted); }
+  .hbtn.danger:hover { color: var(--error); }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(10,14,25,0.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; animation: fadeInUp 0.2s ease both; }
+  .modal {
+    position: relative; width: 100%; max-width: 410px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 30px 28px; box-shadow: var(--shadow-lg);
+  }
+  .modal h3 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; color: var(--heading); letter-spacing: -0.3px; }
+  .modal-sub { color: var(--muted); font-size: 13px; margin: 6px 0 22px; line-height: 1.5; }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px; width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: none; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; border-radius: 7px;
+  }
+  .modal-close:hover { background: var(--overlay); color: var(--text); }
+  .auth-error {
+    display: none; margin: 4px 0 14px; padding: 10px 13px;
+    background: rgba(229,72,77,0.08); border: 1px solid rgba(229,72,77,0.28);
+    border-radius: 8px; color: var(--error); font-size: 12.5px; line-height: 1.5;
+  }
+  .auth-error.visible { display: block; }
+  .auth-toggle { margin-top: 16px; text-align: center; font-size: 13px; color: var(--muted); }
+  .auth-toggle a { color: var(--accent); font-weight: 600; cursor: pointer; }
+  .auth-toggle a:hover { text-decoration: underline; }
+
+  /* Saved requirements list */
+  .saved-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 12px; box-shadow: var(--shadow-sm);
+  }
+  .saved-meta { min-width: 0; }
+  .saved-title { font-weight: 600; font-size: 14.5px; color: var(--heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .saved-sub { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  .saved-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .empty-state p { font-size: 15px; }
+  .empty-state .empty-sub { font-size: 13px; margin-top: 6px; }
+  .tool-btn.saved { border-color: var(--success); color: var(--success); }
+
   @media (max-width: 600px) {
     .row { grid-template-columns: 1fr; }
     main { padding: 26px 16px 50px; }
     header { padding: 12px 16px; }
     .badge { display: none; }
+    .user-email { display: none; }
+    .header-right { gap: 7px; }
     .intro h1 { font-size: 28px; letter-spacing: -0.7px; }
     .intro p { font-size: 15px; }
     .results-title { font-size: 19px; }
@@ -630,11 +693,14 @@
     </svg>
   </div>
   <div class="logo-text">Req<span>AI</span></div>
+  <div class="header-right">
   <div class="badge">Business Analyst Tool</div>
+  <div class="auth-area" id="authArea"></div>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle light or dark theme" title="Toggle theme">
     <svg class="icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     <svg class="icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>
   </button>
+  </div>
 </header>
 
 <main>
@@ -739,6 +805,10 @@
         <p class="results-subtitle" id="resultsSubtitle"></p>
       </div>
       <div class="results-actions">
+        <button class="tool-btn" id="saveBtn" onclick="saveCurrent()" title="Save to your account">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span class="lbl">Save</span>
+        </button>
         <button class="tool-btn" id="copyAllBtn" onclick="copyAll()" title="Copy all requirements">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           <span class="lbl">Copy</span>
@@ -776,12 +846,45 @@
       </div>
     </div>
   </div>
+
+  <div id="savedView" style="display:none;">
+    <div class="results-header">
+      <button class="back-btn" onclick="showOnly('formView')" aria-label="Back to generator">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="11 18 5 12 11 6"/></svg>
+        Back
+      </button>
+      <div class="results-title-wrap">
+        <h1 class="results-title">My Requirements</h1>
+        <p class="results-subtitle">Your saved requirement sets — open or delete any of them.</p>
+      </div>
+    </div>
+    <div id="savedList"></div>
+  </div>
 </main>
 
 <footer>
   <span><strong>ReqAI</strong> — AI Requirements Generator</span>
   <span>Built by Michael Popoola</span>
 </footer>
+
+<div class="modal-overlay" id="authModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAuth()" aria-label="Close">&times;</button>
+    <h3 id="authTitle">Log in</h3>
+    <p class="modal-sub" id="authSub">Sign in to save and manage your requirements.</p>
+    <div class="field">
+      <label for="authEmail">Email</label>
+      <input type="email" id="authEmail" placeholder="you@company.com" autocomplete="email" />
+    </div>
+    <div class="field">
+      <label for="authPassword">Password</label>
+      <input type="password" id="authPassword" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <div class="auth-error" id="authError" aria-live="polite"></div>
+    <button class="generate-btn" id="authSubmit" onclick="submitAuth()" style="margin-top:2px;">Log in</button>
+    <p class="auth-toggle" id="authToggle">Don't have an account? <a onclick="switchAuthMode()">Sign up</a></p>
+  </div>
+</div>
 
 <script>
   let selectedFormat = 'Agile / Scrum';
@@ -795,6 +898,14 @@
   // Last completed generation, used by the export buttons.
   let lastRaw = '';
   let lastContext = null;
+
+  // Supabase (auth + saved requirements)
+  const SUPABASE_URL = 'https://nhijnfttmboqifomzdsx.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oaWpuZnR0bWJvcWlmb216ZHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyMjUyMDksImV4cCI6MjA5OTgwMTIwOX0.9xaiuA_ilLIlcbWiBp0gNffTq3M9EBBNSbWpd1VK57k';
+  const sb = (window.supabase && window.supabase.createClient)
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
+  let currentUser = null;
 
   const MIN_WORDS = 25;
   const MAX_WORDS = 500;
@@ -1091,12 +1202,15 @@
   /* ---------- View switching ---------- */
   function showForm() {
     if (currentController) currentController.abort();
-    swapView(document.getElementById('resultsView'), document.getElementById('formView'));
+    showOnly('formView');
   }
 
-  function swapView(hideEl, showEl) {
-    hideEl.style.display = 'none';
-    showEl.style.display = 'block';
+  function showOnly(id) {
+    ['formView', 'resultsView', 'savedView'].forEach(v => {
+      const el = document.getElementById(v);
+      if (el) el.style.display = (v === id) ? 'block' : 'none';
+    });
+    const showEl = document.getElementById(id);
     showEl.classList.remove('view-anim');
     void showEl.offsetWidth; // restart the enter animation
     showEl.classList.add('view-anim');
@@ -1126,7 +1240,7 @@
     lastRaw = '';
 
     // Move to the dedicated results screen.
-    swapView(document.getElementById('formView'), document.getElementById('resultsView'));
+    showOnly('resultsView');
 
     // Reset the results screen for this run.
     document.getElementById('resultsSubtitle').textContent =
@@ -1223,6 +1337,176 @@ Be specific to the domain. No generic filler.`;
       }
     }
   }
+
+  /* ---------- Auth + saved requirements (Supabase) ---------- */
+  let authMode = 'login';
+
+  function updateAuthUI() {
+    const area = document.getElementById('authArea');
+    if (!area) return;
+    if (!sb) { area.innerHTML = ''; return; }
+    if (currentUser) {
+      const email = escapeHtml(currentUser.email || '');
+      area.innerHTML =
+        '<button class="hbtn ghost" onclick="showSaved()">My Requirements</button>' +
+        '<span class="user-email" title="' + email + '">' + email + '</span>' +
+        '<button class="hbtn ghost" onclick="logOut()">Log out</button>';
+    } else {
+      area.innerHTML =
+        '<button class="hbtn ghost" onclick="openAuth(\'login\')">Log in</button>' +
+        '<button class="hbtn" onclick="openAuth(\'signup\')">Sign up</button>';
+    }
+  }
+
+  function openAuth(mode) {
+    if (!sb) return;
+    authMode = (mode === 'signup') ? 'signup' : 'login';
+    const err = document.getElementById('authError');
+    err.classList.remove('visible'); err.textContent = '';
+    renderAuthMode();
+    document.getElementById('authModal').classList.add('open');
+    setTimeout(() => { try { document.getElementById('authEmail').focus(); } catch (e) {} }, 60);
+  }
+  function closeAuth() { document.getElementById('authModal').classList.remove('open'); }
+  function switchAuthMode() { authMode = (authMode === 'login') ? 'signup' : 'login'; renderAuthMode(); }
+  function renderAuthMode() {
+    const isLogin = authMode === 'login';
+    document.getElementById('authTitle').textContent = isLogin ? 'Log in' : 'Create your account';
+    document.getElementById('authSub').textContent = isLogin
+      ? 'Sign in to save and manage your requirements.'
+      : 'Sign up free to save your generated requirements to your account.';
+    document.getElementById('authSubmit').textContent = isLogin ? 'Log in' : 'Sign up';
+    document.getElementById('authToggle').innerHTML = isLogin
+      ? "Don't have an account? <a onclick=\"switchAuthMode()\">Sign up</a>"
+      : "Already have an account? <a onclick=\"switchAuthMode()\">Log in</a>";
+  }
+
+  async function submitAuth() {
+    if (!sb) return;
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    const err = document.getElementById('authError');
+    err.classList.remove('visible');
+    if (!email || !password) { err.textContent = 'Enter your email and password.'; err.classList.add('visible'); return; }
+    if (authMode === 'signup' && password.length < 6) { err.textContent = 'Password must be at least 6 characters.'; err.classList.add('visible'); return; }
+    const btn = document.getElementById('authSubmit');
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Please wait…';
+    try {
+      const res = (authMode === 'signup')
+        ? await sb.auth.signUp({ email, password })
+        : await sb.auth.signInWithPassword({ email, password });
+      if (res.error) throw res.error;
+      document.getElementById('authPassword').value = '';
+      closeAuth();
+    } catch (e) {
+      err.textContent = e.message || 'Authentication failed.';
+      err.classList.add('visible');
+    } finally {
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }
+
+  async function logOut() {
+    if (!sb) return;
+    await sb.auth.signOut();
+    showOnly('formView');
+  }
+
+  async function saveCurrent() {
+    if (!sb) { flashSaveLabel('Unavailable'); return; }
+    if (!currentUser) { openAuth('login'); return; }
+    if (!lastRaw) return;
+    const btn = document.getElementById('saveBtn');
+    const lbl = btn.querySelector('.lbl');
+    btn.disabled = true; lbl.textContent = 'Saving…';
+    const c = lastContext || {};
+    const title = ((c.problem || 'Requirements').replace(/\s+/g, ' ').trim().slice(0, 70)) || 'Requirements';
+    const { error } = await sb.from('requirements').insert({
+      user_id: currentUser.id,
+      title: title,
+      problem: c.problem || '',
+      persona: c.user || '',
+      domain: c.domain || '',
+      format: c.format || '',
+      priority: c.priority || '',
+      content: lastRaw
+    });
+    btn.disabled = false;
+    if (error) { flashSaveLabel('Save failed'); return; }
+    btn.classList.add('saved'); lbl.textContent = 'Saved ✓';
+    setTimeout(() => { btn.classList.remove('saved'); lbl.textContent = 'Save'; }, 2500);
+  }
+  function flashSaveLabel(text) {
+    const lbl = document.querySelector('#saveBtn .lbl');
+    if (!lbl) return;
+    lbl.textContent = text;
+    setTimeout(() => { lbl.textContent = 'Save'; }, 2200);
+  }
+
+  async function showSaved() {
+    if (!sb) return;
+    if (!currentUser) { openAuth('login'); return; }
+    showOnly('savedView');
+    const list = document.getElementById('savedList');
+    list.innerHTML = '<div class="results-loading"><div class="spinner"></div><span>Loading your saved requirements…</span></div>';
+    const { data, error } = await sb.from('requirements').select('id,title,domain,created_at').order('created_at', { ascending: false });
+    if (error) { list.innerHTML = '<div class="results-error visible">Could not load your requirements: ' + escapeHtml(error.message) + '</div>'; return; }
+    renderSavedList(data || []);
+  }
+
+  function renderSavedList(rows) {
+    const list = document.getElementById('savedList');
+    if (!rows.length) {
+      list.innerHTML = '<div class="empty-state"><p>No saved requirements yet.</p><p class="empty-sub">Generate a set, then hit <strong>Save</strong> on the results screen to keep it here.</p></div>';
+      return;
+    }
+    list.innerHTML = rows.map(r => {
+      let d = '';
+      try { d = new Date(r.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); } catch (e) {}
+      const sub = [escapeHtml(r.domain || ''), d].filter(Boolean).join(' · ');
+      return '<div class="saved-item">' +
+        '<div class="saved-meta"><div class="saved-title">' + escapeHtml(r.title || 'Untitled') + '</div>' +
+        '<div class="saved-sub">' + sub + '</div></div>' +
+        '<div class="saved-actions">' +
+        '<button class="hbtn ghost" onclick="openSaved(\'' + r.id + '\')">Open</button>' +
+        '<button class="hbtn danger" onclick="deleteSaved(\'' + r.id + '\')">Delete</button>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  async function openSaved(id) {
+    if (!sb) return;
+    const { data, error } = await sb.from('requirements').select('*').eq('id', id).single();
+    if (error || !data) return;
+    lastRaw = data.content || '';
+    lastContext = { problem: data.problem, user: data.persona, domain: data.domain, format: data.format, priority: data.priority };
+    showOnly('resultsView');
+    document.getElementById('resultsSubtitle').textContent = [data.domain, data.format, data.priority].filter(Boolean).join('  •  ');
+    document.getElementById('resultsLoading').style.display = 'none';
+    document.getElementById('resultsError').classList.remove('visible');
+    document.getElementById('outputSection').classList.add('visible');
+    parseAndRender(lastRaw);
+    switchTab('stories');
+  }
+
+  async function deleteSaved(id) {
+    if (!sb) return;
+    const { error } = await sb.from('requirements').delete().eq('id', id);
+    if (!error) showSaved();
+  }
+
+  // Initialise auth: restore any existing session and react to changes.
+  if (sb) {
+    sb.auth.getSession().then(({ data }) => { currentUser = (data && data.session) ? data.session.user : null; updateAuthUI(); });
+    sb.auth.onAuthStateChange((e, session) => { currentUser = session ? session.user : null; updateAuthUI(); });
+    const modal = document.getElementById('authModal');
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeAuth(); });
+    ['authEmail', 'authPassword'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(); });
+    });
+  }
+  updateAuthUI();
 
   // Initial state.
   updateValidation();
